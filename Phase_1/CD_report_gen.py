@@ -3,6 +3,7 @@ import folium
 import pandas as pd
 from ECHO_modules.get_data import get_echo_data
 import sqlite3
+import matplotlib.pyplot as plt
 
 
 def cd_to_block(state, cd):
@@ -116,4 +117,21 @@ def gen_report(state, cd):
                 newdf = newdf.append(new_row, ignore_index=True)
             except AttributeError:
                 continue
+
+    plt.rcParams["figure.figsize"] = [8, 5]
+    means.plot(kind='bar', alpha=0., yerr = stdev)
+    # means_plus_stdev.plot(kind='bar', alpha=0.3)
+    plt.scatter(x=newdf['metric'], y=newdf['value'], sizes=newdf['count'],
+            color='Green')
+
+    plt.title("EJ Screen Index Percentiles for {}, District {}".format(state,cd))
+    plt.xlabel("EJ Screen Categories")
+    plt.ylabel("Census Blocks in National Percentiles\n and Standard Deviation")
+    ax = plt.gca()
+    ax.set_xticklabels(labels=new_columns,rotation=60)
+    # plt.ylim(0,100)
+    # plt.axhline(y = 50, color = 'r', linestyle = '-')
+    filename = "graph-{}-{}.png".format(state, cd)
+    plt.savefig(filename, bbox_inches="tight")
+
     return newdf
