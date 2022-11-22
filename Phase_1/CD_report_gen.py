@@ -11,7 +11,7 @@ def cd_to_block(state, cd):
     pass
 
 def lookup(state):
-    df = pd.read_csv("state-fips-codes.csv")
+    df = pd.read_csv("EEW-EJScreen/state-fips-codes.csv")
     df = df[df['State_Code'] == state]
     return str(df['FIPS_Code'].iloc[0]).zfill(2)
 
@@ -23,7 +23,7 @@ def gen_report(state, cd):
     Returns: a dataframe
     """
     # INITIAL OUTLINE
-    url = f"https://theunitedstates.io/districts/cds/2012/{state}-{str(cd)}/shape.geojson"
+    url = f"https://theunitedstates.io/districts/cds/2016/{state}-{str(cd)}/shape.geojson"
     cd_boundary = gpd.read_file(url)
     bounds = cd_boundary.bounds
     map = folium.Map(location=((bounds.miny+bounds.maxy)/2.,
@@ -39,18 +39,20 @@ def gen_report(state, cd):
     sql = 'select {} from "EJSCREEN_2021_USPR" where DIV("ID", 10000000000) = {}'
     sql = sql.format(select_columns, lookup(state))
 
-    ej_state_df = cd_to_block(state, cd)
-    # ej_state_df = get_echo_data(sql)
+    #ej_state_df = cd_to_block(state, cd)
+    ej_state_df = get_echo_data(sql)
 	# Rename the ID field to match the field in the census data block group.
-    # ej_state_df.rename(columns={'ID':'GEOID'}, inplace=True)
-    # ej_state_df['GEOID'] = ej_state_df['GEOID'].astype(int)
+    ej_state_df.rename(columns={'ID':'GEOID'}, inplace=True)
+    ej_state_df['GEOID'] = ej_state_df['GEOID'].astype(int)
 
     ############################################################################
 
     # GET CENSUS
-    conn = sqlite3.connect("census-shapefiles/census2010.db")
+    conn = sqlite3.connect("EEW-EJScreen/census-shapefiles/census2010.db")
 
     bg_point_list = []
+    print(len(ej_state_df))
+    i = 0
     for index, row in ej_state_df.iterrows():
         # Use row['GEOID'] to look for the block group in the census db.
         sql = 'select GEOID, INTPTLAT, INTPTLON from census_block_groups where GEOID=\'{}\''.format(
@@ -59,6 +61,8 @@ def gen_report(state, cd):
         c.execute(sql)
         block_group = c.fetchone()
         bg_point_list.append(block_group)
+        print(i)
+        i += 1
     conn.close()
 
     # EJ Screen Records
@@ -121,19 +125,39 @@ def gen_report(state, cd):
     return newdf
     
     
-   def run_all_districts(state):
-    """
-    Loops through all of the congressional districts of a state and calls gen_report(state, cd) on them
+# def run_all_districts(state):
+#     """
+#     Loops through all of the congressional districts of a state and calls gen_report(state, cd) on them
 
-    Parameter state: str of desired state to examine
-    """
+#     Parameter state: str of desired state to examine
+#     """
     
-    data = pd.read_table('state'+'.txt', sep='|',header =None,names=['BLOCKID','DISTRICT'])
-    dists = data['DISTRICT'].unique()
-    for cd in dists:
-        gen_report(state, cd)
+#     data = pd.read_table('state'+'.txt', sep='|',header =None,names=['BLOCKID','DISTRICT'])
+#     dists = data['DISTRICT'].unique()
+#     for cd in dists:
+#         gen_report(state, cd)
+
+
+def run_all_districts():
+    file_name = "../state_cd.csv"
+    df = pd.read_csv(file_name)
+    # Find all unique values of first column of CSV file (all unique states in a given CSV file)
+    states = df.iloc[:,0].unique()
+    # Loop through each state in the CSV & find all unique districts in that state
+    for state in states:
+        dists = df[df.iloc[:,0] == state].iloc[:,1].unique()
+        # Gen_report for each unique state, district pair
+        for cd in dists:
+           gen_report(state, cd)
+            
 
 def clone_repo():
-    Repo.clone_from("https://github.com/edgi-govdata-archiving/ECHO_modules", "edgi-govdata-archiving/ECHO_modules")
+    #Repo.clone_from("https://github.com/edgi-govdata-archiving/ECHO_modules", "ECHO_modules")
+    Repo.clone_from("https://github.com/edgi-govdata-archiving/EEW-EJScreen.git", "EEW-EJScreen")
+
+    # https://github.com/edgi-govdata-archiving/EEW-EJScreen.git
+#clone_repo()
+#run_all_districts()
+print(gen_report("CA", 13))
     
     
